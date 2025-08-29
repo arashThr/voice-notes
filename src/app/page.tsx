@@ -122,7 +122,7 @@ function HomeContent() {
   );
 }
 
-export function NoteCard({ 
+function NoteCard({ 
   note, 
   onDelete, 
   onEdit 
