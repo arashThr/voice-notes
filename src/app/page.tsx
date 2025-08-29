@@ -1,102 +1,28 @@
 'use client'
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+import { useAppContext } from './context';
+import Link from 'next/link';
+import { Note } from './types';
 
-type Note = {
-  id: number
-  title: string
-  content: string
-  category: string
-};
-
-type FilterContextType = {
-  filterCategory: string;
-  setFilterCategory: (category: string) => void;
-};
-
-const FilterContext = createContext<FilterContextType | undefined>(undefined)
-
-function FilterProvider({children}: {children: React.ReactNode}) {
-  const [filterCategory, setFilterCategory] = useState('all')
-
-  return (
-    <FilterContext.Provider value={{filterCategory, setFilterCategory}}>
-      {children}
-    </FilterContext.Provider>
-  )
-}
-
-function useFilter() {
-  const context = useContext(FilterContext);
-  console.log("Context value:", context); // ADD THIS LINE
-  if (!context) {
-    throw new Error('useFilter must be used within FilterProvider');
-  }
-  return context;
-}
-
-function useNote() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  // const appContext = useAppContext()
-
-  const addNote = (noteTitle: string, noteContent: string, noteCategory: string) => {
-    const newNote = {
-      id: Date.now(),
-      title: noteTitle,
-      content: noteContent,
-      category: noteCategory,
-    }
-
-    setNotes([...notes, newNote])
-  }
-  
-  const deleteNote = (id: number) => {
-    // Immutability: If you change in place with splice, React thinks "same array reference = no change"
-    // React uses Object.is() to compare old state vs new state
-    setNotes(notes.filter(note => note.id !== id))
-  }
-
-  const saveNote = (id: number, newTitle: string, newContent: string) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id 
-        ? { ...note, title: newTitle, content: newContent }
-        : note
-    ));
-  }
-
-  // useEffect handles side effects - code that interacts with the outside world:
-  useEffect(() => {
-    const savedNotes = localStorage.getItem('notes')
-    if (!savedNotes || savedNotes.trim() === '') {
-      return
-    }
-    setNotes(JSON.parse(savedNotes))
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('notes', JSON.stringify(notes))
-  }, [notes])
-
-  return {notes, addNote, deleteNote, saveNote}
-}
-
+// Components
 function FilterButtons() {
-  const { filterCategory, setFilterCategory } = useFilter();
+  const { filterCategory, setFilterCategory } = useAppContext();
   
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
+    <div className="flex flex-wrap gap-2 mb-6">
       <button
         onClick={() => setFilterCategory('all')}
-        className={`px-3 py-1 rounded-full text-sm ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           filterCategory === 'all'
             ? 'bg-gray-800 text-white'
             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
         }`}
       >
-        All
+        All Notes
       </button>
       <button
         onClick={() => setFilterCategory('personal')}
-        className={`px-3 py-1 rounded-full text-sm ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           filterCategory === 'personal'
             ? 'bg-blue-500 text-white'
             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -106,7 +32,7 @@ function FilterButtons() {
       </button>
       <button
         onClick={() => setFilterCategory('work')}
-        className={`px-3 py-1 rounded-full text-sm ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           filterCategory === 'work'
             ? 'bg-green-500 text-white'
             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -116,7 +42,7 @@ function FilterButtons() {
       </button>
       <button
         onClick={() => setFilterCategory('shopping')}
-        className={`px-3 py-1 rounded-full text-sm ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           filterCategory === 'shopping'
             ? 'bg-purple-500 text-white'
             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -128,91 +54,109 @@ function FilterButtons() {
   );
 }
 
-export default function Home() {
-  return (
-    <FilterProvider>
-      <HomeContent/>
-    </FilterProvider>
-  )
-}
-
 function HomeContent() {
-  const {notes, addNote, saveNote, deleteNote} = useNote()
+  const {notes, deleteNote, editNote, filterCategory} = useAppContext()
 
-  const [noteTitle, setNoteTitle] = useState('')
-  const [noteContent, setNoteContent] = useState('')
-  const {filterCategory} = useFilter()
-
-  const handleAddNote = () => {
-    if (!noteTitle.trim() || !noteContent.trim()) {
-      alert('Please fill in both title and content')
-      return
-    }
-    addNote(noteTitle, noteContent, filterCategory)
-    setNoteTitle('')
-    setNoteContent('')
-  }
-
-  const filteredNote = filterCategory === 'all'
-    ? notes
-    : notes.filter(note => note.category === filterCategory)
-
+  // Filter notes based on selected category
+  const filteredNotes = filterCategory === 'all' 
+    ? notes 
+    : notes.filter(note => note.category === filterCategory);
 
   return (
-    <div className="p-5 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Test drive bookings</h1>
-
-      <FilterButtons/>
-      
-      <div className="mb-6">
-        <div className="mb-3">
-          <label className="block mr-3">Note title</label>
-          <input type="text" className="border border-gray-200 border-b border-b-gray-200 shadow rounded py-1 px-2 w-1/2 h-12"
-            placeholder="Enter note title..." value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Voice Notes</h1>
+          <p className="text-gray-600">Capture your thoughts, organize your life</p>
         </div>
-        <div className="mb-3">
-          <textarea value={noteContent} placeholder="Enter note content..." onChange={(e) => setNoteContent(e.target.value)}
-            className="border border-gray-200 border-b border-b-gray-200 shadow rounded py-1 px-2 w-2/3"
-            />
-        </div>
-        <button onClick={handleAddNote} disabled={!noteTitle.trim() || !noteContent.trim  ()}
-          // Template literals - Using backticks for dynamic className strings
-          className={`rounded shadow p-2 ${
-            noteTitle.trim() && noteContent.trim()
-              ? 'bg-blue-500 text-white hover:bg-blue-600' 
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}>Add note</button>
-      </div>
 
-      <div className="py-10">
-        <h2 className="pb-5 text-gray-300">Your notes will appear here...</h2>
-        {filteredNote.map(note => (
-          // Keys are about DOM efficiency for reconciliation when re-rendering a list
-          <NoteCard key={note.id} note={note} deleteNote={deleteNote} saveNote={saveNote}/>
-        ))}
+        {/* Floating Action Button */}
+        <Link href="/add">
+          <button className="fixed bottom-6 right-6 bg-blue-500 hover:bg-blue-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
+        </Link>
+
+        {/* Filter Buttons */}
+        <FilterButtons />
+
+        {/* Notes List */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+            {filterCategory === 'all' 
+              ? `All Notes (${filteredNotes.length})`
+              : `${filterCategory.charAt(0).toUpperCase() + filterCategory.slice(1)} Notes (${filteredNotes.length})`
+            }
+          </h2>
+          
+          {filteredNotes.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <div className="text-gray-400 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-lg text-gray-500 mb-2">
+                {filterCategory === 'all' ? 'No notes yet' : `No ${filterCategory} notes yet`}
+              </p>
+              <p className="text-sm text-gray-400">Add your first note above to get started!</p>
+            </div>
+          ) : (
+            <div className="grid gap-6">
+              {filteredNotes.map(note => (
+                <NoteCard 
+                  key={note.id} 
+                  note={note} 
+                  onDelete={deleteNote}
+                  onEdit={editNote}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function NoteCard({note, deleteNote, saveNote}: {
-  note: Note,
-  deleteNote: (id: number) => void,
-  saveNote: (id: number, title: string, content: string) => void
+export function NoteCard({ 
+  note, 
+  onDelete, 
+  onEdit 
+}: { 
+  note: Note;
+  onDelete: (id: number) => void;
+  onEdit: (id: number, title: string, content: string) => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedTitle, setEditedTitle] = useState(note.title)
-  const [editedContent, setEditedContent] = useState(note.content)
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(note.title);
+  const [editContent, setEditContent] = useState(note.content);
 
-  const editNote = () => {
-    setIsEditing(true)
-  }
+  // Reset edit fields when editing mode changes
+  useEffect(() => {
+    if (isEditing) {
+      setEditTitle(note.title);
+      setEditContent(note.content);
+    }
+  }, [isEditing, note.title, note.content]);
 
-  const cancelEdit = () => {
-    setEditedTitle(note.title)
-    setEditedContent(note.content)
-    setIsEditing(false)
-  }
+  const handleSave = () => {
+    if (!editTitle.trim() || !editContent.trim()) {
+      alert('Title and content cannot be empty');
+      return;
+    }
+    onEdit(note.id, editTitle.trim(), editContent.trim());
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditTitle(note.title);
+    setEditContent(note.content);
+    setIsEditing(false);
+  };
 
   const getCategoryColor = (category: string) => {
     switch(category) {
@@ -221,43 +165,92 @@ function NoteCard({note, deleteNote, saveNote}: {
       case 'shopping': return 'bg-purple-500';
       default: return 'bg-gray-500';
     }
-  }
+  };
 
-  const editing = (
-    <div>
-      <input type="text" className="border border-gray-200 border-b border-b-gray-200 shadow rounded py-1 px-2 w-1/2 h-12"
-        placeholder="Enter note title..." value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} />
-      <textarea value={editedContent} placeholder="Enter note content..." onChange={(e) => setEditedContent(e.target.value)}
-        className="border border-gray-200 border-b border-b-gray-200 shadow rounded py-1 px-2 w-2/3"
-        />
-      <div className="flex gap-2">
-        <button className={`p-2 my-4 bg-red-300 rounded`} onClick={() => {
-          saveNote(note.id, editedTitle, editedContent)
-          setIsEditing(false)
-        }}>Save</button>
-        <button className={`p-2 my-4 bg-green-300 rounded`} onClick={() => cancelEdit()}>Cancel</button>
-      </div>
-    </div>
-  )
-
-  const showing = (
-    <div>
-      <h3 className="font-bold">{note.title}</h3>
-      <p>{note.content}</p>
-      <div className="flex gap-2">
-        <button className={`p-2 my-4 bg-red-300 rounded`} onClick={() => deleteNote(note.id)}>Delete</button>
-        <button className={`p-2 my-4 bg-green-300 rounded`} onClick={() => editNote()}>Edit</button>
-      </div>
-    </div>
-  )
-  
   return (
-    <div key={note.id} className="border border-gray-100 border-b-2 shadow rounded-2xl p-5 my-5">
-      <div>
-        <div className={`w-3 h-3 ${getCategoryColor(note.category)}`}></div>
-        <span>{note.category}</span>
+    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Category indicator */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getCategoryColor(note.category)}`}></div>
+        <span className="text-sm text-gray-500 capitalize whitespace-nowrap">{note.category}</span>
       </div>
-      {isEditing ? editing : showing}
+
+      {/* Note content */}
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          {isEditing ? (
+            <div className="space-y-3">
+              <input 
+                type="text" 
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-lg font-semibold focus:outline-none focus:border-blue-500"
+                placeholder="Enter note title..."
+              />
+              <textarea 
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 h-24 resize-none focus:outline-none focus:border-blue-500"
+                placeholder="Enter note content..."
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSave}
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                >
+                  Save
+                </button>
+                <button 
+                  onClick={handleCancel}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900 mb-2">{note.title}</h3>
+              <p className="text-gray-700 leading-relaxed mb-4">{note.content}</p>
+            </div>
+          )}
+        </div>
+        
+        {!isEditing && (
+          <div className="ml-4 flex gap-2">
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="text-blue-500 hover:text-blue-700 px-3 py-1 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+            <button 
+              onClick={() => onDelete(note.id)}
+              className="text-red-500 hover:text-red-700 px-3 py-1 text-sm font-medium transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Creation date */}
+      {!isEditing && (
+        <div className="text-sm text-gray-400 mt-4">
+          {new Date(note.id).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          })}
+        </div>
+      )}
     </div>
-  )
+  );
+}
+
+// Main App Component
+export default function Home() {
+  return (
+    <HomeContent />
+  );
 }
